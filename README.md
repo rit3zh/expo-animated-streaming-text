@@ -4,7 +4,6 @@ Animated Streaming markdown for React Native, with word-by-word fades, a color t
 
 
 https://github.com/user-attachments/assets/2315fc02-36c8-4ef2-ad4d-6f48ae6eaa43
-Uploading github-demo-1080p-small-res.mp4…
 
 ---
 
