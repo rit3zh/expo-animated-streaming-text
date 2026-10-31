@@ -1,56 +1,131 @@
-# Welcome to your Expo app 👋
+# expo-animated-streaming-text
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Animated Streaming markdown for React Native, with word-by-word fades, a color trail and syntax-highlighted code.
 
-## Get started
+<!-- demo video -->
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## ⚙️ Installation
 
 ```bash
-npm run reset-project
+git clone https://github.com/rit3zh/expo-animated-streaming-text
+cd expo-animated-streaming-text
+bun install
+bun start-c
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Peer dependencies (already set up in this template):
 
-### Other setup steps
+```bash
+bunx expo install react-native-reanimated react-native-worklets @shopify/flash-list react-native-keyboard-controller expo-clipboard
+bun add unified remark-parse remark-gfm @shikijs/core @shikijs/engine-javascript @shikijs/langs @shikijs/themes highlight.js
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+The component lives in [`src/components/streaming-text`](src/components/streaming-text). Optionally, to let the demo chat app talk to real models, copy `.env.example` to `.env` and add any keys you want. This isn't required:
 
-## Learn more
+```bash
+EXPO_PUBLIC_OPENROUTER_API_KEY=
+EXPO_PUBLIC_GROQ_API_KEY=
+EXPO_PUBLIC_DEEPSEEK_API_KEY=
+EXPO_PUBLIC_GOOGLE_GEMINI_API_KEY=
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🚀 Usage
 
-## Join the community
+Pass the markdown as `children`. While `streaming` is `true`, keep appending text and new words fade in as they arrive.
 
-Join our community of developers creating universal apps.
+```tsx
+import { StreamingText } from "@/components/streaming-text";
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+export function Reply({
+  text,
+  streaming,
+}: {
+  text: string;
+  streaming: boolean;
+}) {
+  return <StreamingText streaming={streaming}>{text}</StreamingText>;
+}
+```
+
+For a full chat screen, use `StreamingTextList`. It's a `FlashList` that renders each block lazily and follows the bottom while text streams in:
+
+```tsx
+import { StreamingTextList } from "@/components/streaming-text";
+
+export function Chat({
+  text,
+  streaming,
+}: {
+  text: string;
+  streaming: boolean;
+}) {
+  return (
+    <StreamingTextList
+      streaming={streaming}
+      contentContainerStyle={{ padding: 16 }}
+      onRevealEnd={() => console.log("done")}
+    >
+      {text}
+    </StreamingTextList>
+  );
+}
+```
+
+Render already finished messages without the animation:
+
+```tsx
+<StreamingText animate={false}>{message.content}</StreamingText>
+```
+
+Supports headings, bold, italic, strikethrough, links, inline code, quotes, ordered/unordered/task lists, tables, rules and fenced code blocks (highlighted with Shiki, language auto-detected when the fence has none).
+
+---
+
+## 🧩 API
+
+### `<StreamingText>`
+
+| Prop          | Type                         | Default          | Description                                        |
+| ------------- | ---------------------------- | ---------------- | -------------------------------------------------- |
+| `children`    | `string`                     | none             | Markdown to render.                                |
+| `streaming`   | `boolean`                    | `false`          | Whether more text is still coming.                 |
+| `animate`     | `boolean`                    | `true`           | Fade words in. Turn off for history.               |
+| `wordMs`      | `number`                     | `16`             | Minimum delay between words (ms).                  |
+| `fadeMs`      | `number`                     | `1500`           | Fade-in duration per word (ms).                    |
+| `trailMs`     | `number`                     | `2000`           | Duration of the color trail behind new words (ms). |
+| `trailColors` | `readonly string[] \| false` | violet → gray    | Trail colors. `false` disables the trail.          |
+| `onLinkPress` | `(href: string) => void`     | opens in browser | Called when a link is tapped.                      |
+| `style`       | `StyleProp<ViewStyle>`       | none             | Style for the container.                           |
+
+### `<StreamingTextList>`
+
+Accepts every `FlashList` prop (except `data`, `renderItem`, `children`), every `StreamingText` option, plus:
+
+| Prop            | Type                   | Default | Description                                             |
+| --------------- | ---------------------- | ------- | ------------------------------------------------------- |
+| `follow`        | `boolean`              | `true`  | Auto-scroll to the bottom while streaming.              |
+| `followGlideMs` | `number`               | `200`   | How smoothly it glides to the bottom (ms).              |
+| `followInset`   | `DerivedValue<number>` | none    | Extra bottom inset to follow, e.g. the keyboard height. |
+| `onRevealEnd`   | `() => void`           | none    | Called once the last word has finished revealing.       |
+
+Dragging the list detaches follow mode. Scrolling back near the bottom reattaches it.
+
+### `parseMarkdown(text, options?)`
+
+Parses markdown into the blocks used by the renderer. Pass `{ streaming: true }` to close unfinished syntax (`**`, `` ` ``, `[`) so partial text never flashes raw markers.
+
+### Config
+
+Defaults live in [`streaming-text.const.ts`](src/constants/components/streaming-text.const.ts): fade and trail timing, light/dark palettes, Shiki themes (`vitesse-light` / `vitesse-dark`) and the supported languages.
+
+---
+
+## 🧱 Stack
+
+[Expo SDK 58](https://expo.dev/changelog) · [React Native 0.88](https://reactnative.dev/) · [Reanimated 4](https://docs.swmansion.com/react-native-reanimated/) · [Worklets](https://docs.swmansion.com/react-native-worklets/) · [FlashList](https://shopify.github.io/flash-list/) · [Shiki](https://shiki.style/) · [unified](https://unifiedjs.com/) / [remark-gfm](https://github.com/remarkjs/remark-gfm) · [Keyboard Controller](https://kirillzyusko.github.io/react-native-keyboard-controller/) · [@expo/ui](https://docs.expo.dev/versions/latest/sdk/ui/) · [Zustand](https://zustand.docs.pmnd.rs/) · [Expo Router](https://docs.expo.dev/router/introduction/)
+
+---
